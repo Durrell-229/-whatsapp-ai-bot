@@ -573,7 +573,10 @@ es.onmessage = ev => {
 };
 
 function handleQRData(qr) {
-  if (!qr) return;
+  if (!qr) {
+    $('qr-overlay').classList.remove('show');
+    return;
+  }
   const container = $('qr-canvas');
   container.innerHTML = '';
 

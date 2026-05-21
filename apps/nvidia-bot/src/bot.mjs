@@ -197,6 +197,7 @@ async function connectToWhatsApp() {
       console.log("\nWhatsApp connecte! Bot operationnel.\n");
       updateStats({ status: "connected" });
       logMessage({ kind: "sys-info", msg: "WhatsApp connecte — bot operationnel ✓" });
+      broadcastQR(null);
     }
   });
 
