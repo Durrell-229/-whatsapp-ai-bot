@@ -31,7 +31,7 @@ RUN npm install -g pnpm@10
 WORKDIR /app
 
 # Copier les fichiers de config workspace
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json turbo.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json turbo.json tsconfig.base.json tsconfig.json ./
 
 # Copier tous les packages et l'app
 COPY packages/ ./packages/
