@@ -33,17 +33,9 @@ WORKDIR /app
 # Copier les fichiers de config workspace
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json turbo.json ./
 
-# Copier tous les packages necessaires
-COPY packages/schema/       ./packages/schema/
-COPY packages/logger/       ./packages/logger/
-COPY packages/hyperemitter/ ./packages/hyperemitter/
-COPY packages/utils/        ./packages/utils/
-COPY packages/driver-interface/ ./packages/driver-interface/
-COPY packages/domain/       ./packages/domain/
-COPY packages/core/         ./packages/core/
-COPY packages/client/       ./packages/client/
-COPY packages/driver-puppeteer/ ./packages/driver-puppeteer/
-COPY apps/nvidia-bot/       ./apps/nvidia-bot/
+# Copier tous les packages et l'app
+COPY packages/ ./packages/
+COPY apps/nvidia-bot/ ./apps/nvidia-bot/
 
 # Installer les dependances
 RUN pnpm install --no-frozen-lockfile
