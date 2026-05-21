@@ -1,6 +1,7 @@
 FROM node:20-slim
 
 ENV NODE_ENV=production
+ENV REBUILD_TIMESTAMP=2026-05-21T19:25
 
 RUN apt-get update && apt-get install -y git python3 python3-pip make g++ --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
