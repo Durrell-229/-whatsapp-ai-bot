@@ -20,7 +20,7 @@
     "@open-wa/socket-client": "workspace:*",
     "@scalar/api-reference-react": "^0.9.18",
     "@tailwindcss/vite": "catalog:",
-    "@tanstack/react-devtools": "^0.10.0",
+    "@tanstack/react-devtools": "^0.10.5",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-router-ssr-query": "catalog:",
