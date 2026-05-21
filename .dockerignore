@@ -10,5 +10,4 @@ packages/legacy
 packages/legacy-documented
 packages/plugin-sdk
 packages/session-sync
-packages/decrypt
 *.log
