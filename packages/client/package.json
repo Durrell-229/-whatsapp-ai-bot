@@ -26,7 +26,8 @@
     "@open-wa/hyperemitter": "workspace:*",
     "@open-wa/logger": "workspace:*",
     "@open-wa/schema": "workspace:*",
-    "axios": "catalog:"
+    "axios": "catalog:",
+    "p-queue": "^8.1.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
