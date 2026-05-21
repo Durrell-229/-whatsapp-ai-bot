@@ -8,12 +8,12 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.15",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/libsignal": "^1.0.0",
+    "libsignal": "github:WhiskeySockets/libsignal-node",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "pino": "^9.0.0"
   },
   "overrides": {
-    "libsignal": "npm:@whiskeysockets/libsignal@^1.0.0"
+    "libsignal": "github:WhiskeySockets/libsignal-node"
   }
 }
