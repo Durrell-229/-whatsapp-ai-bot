@@ -10,6 +10,7 @@ const server = createServer(app);
 const sseClients = new Set();
 const messageLog = [];
 let _page = null; // puppeteer page reference pour screenshot QR
+let _lastQR = null; // dernier QR recu (pour les nouveaux clients SSE)
 
 export const stats = {
   messagesReceived: 0,
@@ -33,7 +34,7 @@ function broadcast(event) {
 export function setPage(page) { _page = page; }
 
 export function broadcastQR(qrData) {
-  // qrData peut etre une URL data:image/... ou un code texte brut
+  _lastQR = qrData; // stocker pour les nouveaux clients
   broadcast({ type: 'qr', qr: qrData });
 }
 
@@ -58,6 +59,7 @@ app.get('/api/init', (_req, res) => {
   res.json({
     stats: { ...stats, uptime: Date.now() - stats.startTime },
     log: messageLog.slice(-80),
+    qr: _lastQR, // envoyer le dernier QR aux nouveaux clients
   });
 });
 

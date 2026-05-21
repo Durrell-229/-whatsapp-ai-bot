@@ -174,6 +174,8 @@ async function main() {
     headless: IS_HEADLESS,
     blockAssets: false,
     executablePath: CHROME_PATH,
+    qrTimeoutMs: 0,      // Attendre indefiniment le scan du QR
+    authTimeoutMs: 0,    // Attendre indefiniment l'authentification
   });
 
   const client = new Client({ client: core, transport: core.getTransport() });

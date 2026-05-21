@@ -535,6 +535,7 @@ function clearFeed() {
 fetch('/api/init').then(r => r.json()).then(data => {
   updateStats(data.stats);
   for (const e of data.log) addEntry(e);
+  if (data.qr) handleQRData(data.qr); // afficher le QR si deja disponible
 }).catch(() => {});
 
 // ── Uptime ticker
