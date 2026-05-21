@@ -370,7 +370,7 @@ export class Client implements MessagingMethods, MediaMethods, GroupMethods, Cha
     });
   }
 
-  private async _waitForSessionLoaded(timeoutMs = 20_000, pollingMs = 50): Promise<void> {
+  private async _waitForSessionLoaded(timeoutMs = 60_000, pollingMs = 200): Promise<void> {
     const startedAt = Date.now();
 
     while (Date.now() - startedAt <= timeoutMs) {
@@ -398,7 +398,12 @@ export class Client implements MessagingMethods, MediaMethods, GroupMethods, Cha
       await new Promise((resolve) => setTimeout(resolve, pollingMs));
     }
 
-    throw new Error('Timed out waiting for internal session sync to finish');
+    // Timeout dépassé : on continue quand même pour ne pas bloquer les listeners
+    this.logger.warn('session_sync_timeout_non_fatal', {
+      sessionId: this.sessionId,
+      timeoutMs,
+      detail: 'WAPI.isSessionLoaded() did not return true within timeout — continuing anyway',
+    });
   }
 
   private registerAllSimpleListenersOnEv(): void {

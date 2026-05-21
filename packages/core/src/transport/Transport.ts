@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type {
   DisposableHandle,
   IConsoleMessage,
@@ -527,7 +528,10 @@ export class Transport {
   //wait until wawebcollections resolves
   async waitForInjectableSession(): Promise<boolean> {
     if (this.page) {
-      await this.page.waitForFunction(`window.require && window.require("__debug").modulesMap["WAWebCollections"] ? !!require("WAWebCollections") : false`)
+      await this.page.waitForFunction(
+        `window.require && window.require("__debug").modulesMap["WAWebCollections"] ? !!require("WAWebCollections") : false`,
+        { timeoutMs: 120_000 }
+      )
       return true;
     } return false;
   }
@@ -2387,7 +2391,9 @@ export class Transport {
         throw new Error('Unable to determine current module path for launch.js resolution');
       }
 
-      return dirname(fileName);
+      // Sur Windows avec ESM, getFileName() retourne une URL file:// — on la convertit en chemin système
+      const fsPath = fileName.startsWith('file:') ? fileURLToPath(fileName) : fileName;
+      return dirname(fsPath);
     } finally {
       Error.prepareStackTrace = originalPrepareStackTrace;
     }

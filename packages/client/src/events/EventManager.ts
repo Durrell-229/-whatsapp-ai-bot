@@ -1,4 +1,7 @@
-import PQueue from 'p-queue';
+import PQueueImport from 'p-queue';
+// Gestion de l'interop ESM/CJS : p-queue peut être doublement wrappé selon le bundler
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PQueue: typeof PQueueImport = ((PQueueImport as any).default ?? PQueueImport) as typeof PQueueImport;
 import type { HyperEmitter } from '@open-wa/hyperemitter';
 import type { OpenWAEventMap, STATE } from '@open-wa/core';
 import { eventRegistry, type QueueOptions } from '@open-wa/schema';
