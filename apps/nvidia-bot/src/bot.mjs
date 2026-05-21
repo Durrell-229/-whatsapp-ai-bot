@@ -163,8 +163,8 @@ async function main() {
       "--disable-dev-shm-usage",
       "--disable-gpu",
       "--no-first-run",
-      "--no-zygote",
-      "--single-process",
+      "--disable-blink-features=AutomationControlled",
+      "--disable-features=IsolateOrigins,site-per-process",
     ] : [],
   });
 
