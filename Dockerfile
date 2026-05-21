@@ -40,11 +40,11 @@ COPY apps/nvidia-bot/ ./apps/nvidia-bot/
 # Installer les dependances
 RUN pnpm install --no-frozen-lockfile
 
-# Build dans l'ordre des dependances
-RUN pnpm --filter @open-wa/schema build
+# Build dans l'ordre des dependances (utils en premier car requis par schema)
+RUN pnpm --filter @open-wa/utils build
 RUN pnpm --filter @open-wa/logger build
 RUN pnpm --filter @open-wa/hyperemitter build
-RUN pnpm --filter @open-wa/utils build
+RUN pnpm --filter @open-wa/schema build
 RUN pnpm --filter @open-wa/driver-interface build
 RUN pnpm --filter @open-wa/domain build
 RUN pnpm --filter @open-wa/core build
