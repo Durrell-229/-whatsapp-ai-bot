@@ -46,7 +46,7 @@ COPY packages/driver-puppeteer/ ./packages/driver-puppeteer/
 COPY apps/nvidia-bot/       ./apps/nvidia-bot/
 
 # Installer les dependances
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Build dans l'ordre des dependances
 RUN pnpm --filter @open-wa/schema build
