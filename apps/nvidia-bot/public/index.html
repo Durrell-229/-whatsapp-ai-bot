@@ -586,11 +586,14 @@ es.onmessage = ev => {
 function handleQRData(qr) {
   if (!qr) return;
   const img = $('qr-img');
-  // Si c'est deja une data URL ou URL d'image
+  img.onload = () => { img.style.display = 'block'; };
+  img.onerror = () => {
+    // Fallback: essayer /screenshot directement
+    img.src = '/screenshot?t=' + Date.now();
+  };
   if (qr.startsWith('data:') || qr.startsWith('http')) {
     img.src = qr;
   } else {
-    // Texte brut — afficher via screenshot
     img.src = '/screenshot?t=' + Date.now();
   }
   $('qr-overlay').classList.add('show');

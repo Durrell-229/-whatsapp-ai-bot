@@ -196,21 +196,13 @@ async function main() {
     try {
       const page = transport.getPage();
       if (!page) { console.log("[QR] page pas encore disponible"); return; }
-      const qrDataUrl = await page.evaluateScript(`
-        (() => {
-          const canvas = document.querySelector("canvas[aria-label]");
-          return canvas ? canvas.toDataURL("image/png") : null;
-        })()
-      `);
-      if (qrDataUrl) {
-        broadcastQR(qrDataUrl);
-        console.log("[QR] Canvas envoye au dashboard");
-      } else {
-        const buf = await page.screenshot({ type: "png", fullPage: false });
-        const b64 = Buffer.from(buf).toString("base64");
-        broadcastQR("data:image/png;base64," + b64);
-        console.log("[QR] Screenshot envoye au dashboard (fallback)");
-      }
+      // Enregistrer la page DES que disponible (core.start() bloque jusqu'au scan)
+      setPage(page);
+      // Screenshot de la page WhatsApp Web (contient le QR code)
+      const buf = await page.screenshot({ type: "png", fullPage: false });
+      const b64 = Buffer.from(buf).toString("base64");
+      broadcastQR("data:image/png;base64," + b64);
+      console.log("[QR] Screenshot envoye au dashboard (" + buf.length + " bytes)");
     } catch (e) { console.error("[QR] Erreur:", e.message); }
   }
 
