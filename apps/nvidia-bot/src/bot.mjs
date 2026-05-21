@@ -92,6 +92,11 @@ async function handleMessage(msg, sock) {
 
   if (isImage) {
     try {
+      if (!imageMsg?.mediaKey) {
+        await sock.sendMessage(chatId, { text: "Image non déchiffrable (clé media manquante)." });
+        logMessage({ kind: "sys-error", msg: "OCR erreur: clé media manquante pour " + chatId });
+        return;
+      }
       const buffer  = await downloadMediaMessage(msg, "buffer", {});
       const b64     = buffer.toString("base64");
       const mime    = imageMsg?.mimetype || "image/jpeg";
