@@ -1903,41 +1903,49 @@ export class Transport {
       }
     }
 
-    const qrData = await this.waitForQr();
-    if (!qrData) {
-      return this.resolveAuthTimeoutOutcome({
-        correlationId: 'auth-settle',
-        qrSeen: false,
-        authMethod: 'qr',
-      });
-    }
+    // Loop indefinitely when qrTimeoutMs===0 so navigation events don't kill the wait
+    while (true) {
+      const qrData = await this.waitForQr();
+      if (!qrData) {
+        return this.resolveAuthTimeoutOutcome({
+          correlationId: 'auth-settle',
+          qrSeen: false,
+          authMethod: 'qr',
+        });
+      }
 
-    const qrScanTimeoutMs = this.qrTimeoutMs === 0 ? 0 : this.qrTimeoutMs * 2;
-    const sessionLoaded = await this.waitForSessionLoaded(qrScanTimeoutMs || this.authTimeoutMs);
-    if (sessionLoaded) {
-      return {
-        outcome: 'authenticated',
-        qrSeen: true,
-        qrAttempts: this.qrAttempt,
-        authMethod: 'qr',
-      };
-    }
+      const qrScanTimeoutMs = this.qrTimeoutMs === 0 ? 0 : this.qrTimeoutMs * 2;
+      const sessionLoaded = await this.waitForSessionLoaded(qrScanTimeoutMs || this.authTimeoutMs);
+      if (sessionLoaded) {
+        return {
+          outcome: 'authenticated',
+          qrSeen: true,
+          qrAttempts: this.qrAttempt,
+          authMethod: 'qr',
+        };
+      }
 
-    if (this.qrMax && this.qrAttempt >= this.qrMax) {
-      return {
-        outcome: 'qr_max',
-        qrSeen: true,
-        qrAttempts: this.qrAttempt,
-        authMethod: 'qr',
-      };
-    }
+      if (this.qrMax && this.qrAttempt >= this.qrMax) {
+        return {
+          outcome: 'qr_max',
+          qrSeen: true,
+          qrAttempts: this.qrAttempt,
+          authMethod: 'qr',
+        };
+      }
 
-    return {
-      outcome: 'qr_timeout',
-      qrSeen: true,
-      qrAttempts: this.qrAttempt,
-      authMethod: 'qr',
-    };
+      if (this.qrTimeoutMs !== 0) {
+        return {
+          outcome: 'qr_timeout',
+          qrSeen: true,
+          qrAttempts: this.qrAttempt,
+          authMethod: 'qr',
+        };
+      }
+
+      // qrTimeoutMs===0: page navigation may have reset the QR; loop to redisplay
+      this.lastQrData = null;
+    }
   }
 
   private async resolveAuthTimeoutOutcome(options: {

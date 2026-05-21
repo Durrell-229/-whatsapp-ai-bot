@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp AI Bot</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
 <style>
   :root {
     --bg: #0d0d0d;
@@ -331,25 +332,21 @@
   }
   #qr-box h2 { font-size: 18px; margin-bottom: 6px; }
   #qr-box p  { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
-  #qr-img {
-    width: 100%;
+  #qr-canvas {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 12px;
+    background: white;
     border-radius: 12px;
     border: 2px solid var(--green);
-    background: white;
+    min-height: 100px;
   }
-  #qr-refresh {
-    margin-top: 16px;
-    background: var(--green-dim);
-    border: 1px solid var(--green);
-    color: var(--green);
-    padding: 8px 20px;
+  #qr-canvas canvas, #qr-canvas img {
+    display: block;
+    max-width: 100%;
     border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all .2s;
   }
-  #qr-refresh:hover { background: rgba(37,211,102,0.2); }
   #qr-timer { font-size: 11px; color: var(--text3); margin-top: 10px; }
 
   /* ── SCROLLBAR ── */
@@ -366,11 +363,8 @@
     <p>Ouvrez <strong>WhatsApp</strong> sur votre téléphone<br>
     → Appareils liés → Lier un appareil<br>
     puis scannez ce code QR</p>
-    <img id="qr-img" src="/screenshot" alt="QR Code WhatsApp" onerror="this.src=''" />
-    <div>
-      <button id="qr-refresh" onclick="refreshQR()">↻ Actualiser</button>
-    </div>
-    <div id="qr-timer">Actualisation auto dans <span id="qr-countdown">30</span>s</div>
+    <div id="qr-canvas"><p style="color:#888;font-size:13px">En attente du QR…</p></div>
+    <div id="qr-timer" style="margin-top:12px">QR valide encore <span id="qr-countdown">60</span>s (se renouvelle automatiquement)</div>
   </div>
 </div>
 
@@ -549,21 +543,16 @@ setInterval(() => {
 
 // ── QR Code logic
 let qrInterval = null;
-let qrCountdown = 30;
-
-function refreshQR() {
-  const img = $('qr-img');
-  img.src = '/screenshot?t=' + Date.now();
-  qrCountdown = 30;
-}
+let qrCountdown = 60;
 
 function startQRPolling() {
   $('qr-overlay').classList.add('show');
-  refreshQR();
+  qrCountdown = 60;
+  if (qrInterval) clearInterval(qrInterval);
   qrInterval = setInterval(() => {
     qrCountdown--;
     $('qr-countdown').textContent = qrCountdown;
-    if (qrCountdown <= 0) refreshQR();
+    if (qrCountdown <= 0) { qrCountdown = 60; $('qr-countdown').textContent = '…'; }
   }, 1000);
 }
 
@@ -585,19 +574,33 @@ es.onmessage = ev => {
 
 function handleQRData(qr) {
   if (!qr) return;
-  const img = $('qr-img');
-  img.onload = () => { img.style.display = 'block'; };
-  img.onerror = () => {
-    // Fallback: essayer /screenshot directement
-    img.src = '/screenshot?t=' + Date.now();
-  };
+  const container = $('qr-canvas');
+  container.innerHTML = '';
+
   if (qr.startsWith('data:') || qr.startsWith('http')) {
+    // Fallback: image directe (screenshot)
+    const img = document.createElement('img');
     img.src = qr;
+    img.style.cssText = 'max-width:100%;border-radius:8px;';
+    container.appendChild(img);
   } else {
-    img.src = '/screenshot?t=' + Date.now();
+    // Texte QR (data-ref WhatsApp) → générer le QR localement
+    try {
+      new QRCode(container, {
+        text: qr,
+        width: 280,
+        height: 280,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    } catch(err) {
+      container.innerHTML = '<p style="color:red;font-size:12px">Erreur QR: ' + err.message + '</p>';
+    }
   }
+
   $('qr-overlay').classList.add('show');
-  qrCountdown = 30;
+  qrCountdown = 60;
 }
 es.onerror = () => {
   $('status-text').textContent = 'Reconnexion...';

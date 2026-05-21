@@ -192,17 +192,21 @@ async function main() {
   // Enregistrer le listener QR AVANT core.start() pour ne pas rater l'evenement
   const transport = core.getTransport();
 
-  async function sendQRToDashboard() {
+  // Enregistrer la page puppeteer dès qu'elle est disponible
+  function trySetPage() {
+    const page = transport.getPage();
+    if (page) { setPage(page); console.log("[OK] Page puppeteer enregistree pour /screenshot"); }
+  }
+
+  // Utiliser le texte QR du payload (data-ref du canvas) — bien plus fiable qu'un screenshot
+  function sendQRToDashboard(payload) {
     try {
-      const page = transport.getPage();
-      if (!page) { console.log("[QR] page pas encore disponible"); return; }
-      // Enregistrer la page DES que disponible (core.start() bloque jusqu'au scan)
-      setPage(page);
-      // Screenshot de la page WhatsApp Web (contient le QR code)
-      const buf = await page.screenshot({ type: "png", fullPage: false });
-      const b64 = Buffer.from(buf).toString("base64");
-      broadcastQR("data:image/png;base64," + b64);
-      console.log("[QR] Screenshot envoye au dashboard (" + buf.length + " bytes)");
+      const qrText = payload?.details?.qr;
+      if (!qrText) { console.log("[QR] payload.details.qr manquant:", JSON.stringify(payload)?.slice(0, 200)); return; }
+      broadcastQR(qrText);
+      console.log("[QR] Texte QR envoye au dashboard (attempt " + (payload?.details?.attemptInThisCycle || 1) + ")");
+      logMessage({ kind: "sys-info", msg: "QR code disponible — scannez avec WhatsApp" });
+      trySetPage();
     } catch (e) { console.error("[QR] Erreur:", e.message); }
   }
 
