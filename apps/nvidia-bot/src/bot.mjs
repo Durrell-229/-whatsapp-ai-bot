@@ -10,7 +10,6 @@ import P from "pino";
 import { startDashboard, logMessage, updateStats, stats, broadcastQR } from "./dashboard.mjs";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
-const NVIDIA_MODEL   = process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct";
 const BOT_NAME       = process.env.BOT_NAME || "Assistant WhatsApp";
 const DASHBOARD_PORT = Number(process.env.PORT || process.env.DASHBOARD_PORT) || 3000;
 
@@ -19,14 +18,23 @@ if (!NVIDIA_API_KEY) { console.error("NVIDIA_API_KEY manquant dans .env"); proce
 const history  = new Map();
 const processed = new Set();
 
-async function askNvidia(chatId, userMessage) {
+async function askQwen(chatId, userMessage, imageBase64, imageMime) {
   const msgs = history.get(chatId) || [];
-  msgs.push({ role: "user", content: userMessage });
+
+  const userContent = imageBase64
+    ? [
+        { type: "text", text: userMessage },
+        { type: "image_url", image_url: { url: "data:" + (imageMime || "image/jpeg") + ";base64," + imageBase64 } }
+      ]
+    : userMessage;
+
+  msgs.push({ role: "user", content: userContent });
+
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": "Bearer " + NVIDIA_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: NVIDIA_MODEL,
+      model: "qwen/qwen3.5-397b-a17b",
       messages: [
         { role: "system", content: "Tu es " + BOT_NAME + ", un assistant IA sur WhatsApp. Reponds de facon concise et amicale dans la meme langue que l utilisateur." },
         ...msgs.slice(-20),
@@ -42,19 +50,6 @@ async function askNvidia(chatId, userMessage) {
   return reply;
 }
 
-async function ocrImage(imageBase64, mimeType) {
-  mimeType = mimeType || "image/jpeg";
-  if (imageBase64.length >= 180000) return "(image trop grande pour OCR)";
-  const res = await fetch("https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v1", {
-    method: "POST",
-    headers: { "Authorization": "Bearer " + NVIDIA_API_KEY, "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify({ input: [{ type: "image_url", url: "data:" + mimeType + ";base64," + imageBase64 }] }),
-  });
-  if (!res.ok) throw new Error("OCR API [" + res.status + "]: " + await res.text());
-  const json = await res.json();
-  return (json.output?.[0]?.text?.trim()) || "(aucun texte detecte)";
-}
-
 function handleCommand(text, chatId) {
   switch (text.toLowerCase()) {
     case "!aide": case "!help":
@@ -62,7 +57,7 @@ function handleCommand(text, chatId) {
     case "!reset": case "!effacer":
       history.delete(chatId); return "Historique efface.";
     case "!modele": case "!model":
-      return "Chat: " + NVIDIA_MODEL + "\nOCR: nvidia/nemotron-ocr-v1";
+      return "Modele: Qwen 3.5-397B (texte + images + francais)";
     default: return null;
   }
 }
@@ -94,34 +89,33 @@ async function handleMessage(msg, sock) {
     try {
       if (!imageMsg?.mediaKey) {
         await sock.sendMessage(chatId, { text: "Image non déchiffrable (clé media manquante)." });
-        logMessage({ kind: "sys-error", msg: "OCR erreur: clé media manquante pour " + chatId });
+        logMessage({ kind: "sys-error", msg: "Image erreur: clé media manquante" });
         return;
       }
       const buffer  = await downloadMediaMessage(msg, "buffer", {});
       const b64     = buffer.toString("base64");
       const mime    = imageMsg?.mimetype || "image/jpeg";
-      const ocrText = await ocrImage(b64, mime);
-      stats.ocrRequests++;
-      updateStats({ ocrRequests: stats.ocrRequests });
+      const caption = (imageMsg?.caption || "").trim();
 
-      let reply;
-      const caption = imageMsg?.caption?.trim();
-      if (caption && !ocrText.startsWith("(")) {
-        stats.aiRequests++;
-        updateStats({ aiRequests: stats.aiRequests });
-        const aiReply = await askNvidia(chatId, "Texte extrait: \"" + ocrText + "\"\nQuestion: " + caption);
-        reply = "Texte extrait:\n" + ocrText + "\n\nReponse:\n" + aiReply;
-      } else {
-        reply = "Texte extrait de l image:\n\n" + ocrText;
+      if (b64.length >= 180000) {
+        await sock.sendMessage(chatId, { text: "Image trop grande, impossible à analyser." });
+        return;
       }
+
+      stats.aiRequests++;
+      updateStats({ aiRequests: stats.aiRequests });
+
+      const prompt = caption ? "Question sur l image: " + caption : "Decris cette image en detail";
+      const reply = await askQwen(chatId, prompt, b64, mime);
+
       await sock.sendMessage(chatId, { text: reply });
-      logMessage({ kind: "bot-out", chatId, text: reply, tag: "ocr" });
+      logMessage({ kind: "bot-out", chatId, text: reply, tag: "image" });
     } catch (err) {
       stats.errors++;
       updateStats({ errors: stats.errors });
-      console.error("Erreur OCR:", err.message);
-      logMessage({ kind: "sys-error", msg: "OCR erreur: " + err.message });
-      await sock.sendMessage(chatId, { text: "Impossible de lire cette image." });
+      console.error("Erreur Image:", err.message);
+      logMessage({ kind: "sys-error", msg: "Erreur image: " + err.message });
+      await sock.sendMessage(chatId, { text: "Impossible d'analyser cette image." });
     }
     return;
   }
@@ -141,7 +135,7 @@ async function handleMessage(msg, sock) {
     }
     stats.aiRequests++;
     updateStats({ aiRequests: stats.aiRequests });
-    const aiReply = await askNvidia(chatId, text);
+    const aiReply = await askQwen(chatId, text);
     await sock.sendMessage(chatId, { text: aiReply });
     logMessage({ kind: "bot-out", chatId, text: aiReply, tag: "ai" });
     console.log("Bot -> " + aiReply.slice(0, 100));
@@ -211,9 +205,9 @@ async function connectToWhatsApp() {
 
 async function main() {
   startDashboard(DASHBOARD_PORT);
-  updateStats({ status: "connecting", model: NVIDIA_MODEL, botName: BOT_NAME });
-  logMessage({ kind: "sys-info", msg: "Bot en cours de demarrage (Baileys — sans Chrome)" });
-  console.log("\nBot WhatsApp - NVIDIA NIM (" + NVIDIA_MODEL + ") - Baileys\n");
+  updateStats({ status: "connecting", botName: BOT_NAME });
+  logMessage({ kind: "sys-info", msg: "Bot en cours de demarrage (Baileys + Qwen 3.5 multimodal)" });
+  console.log("\nBot WhatsApp - NVIDIA NIM Qwen 3.5 - Baileys\n");
   await connectToWhatsApp();
 }
 

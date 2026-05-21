@@ -14,12 +14,11 @@ let _lastQR = null;
 export const stats = {
   messagesReceived: 0,
   aiRequests: 0,
-  ocrRequests: 0,
   commandsExecuted: 0,
   errors: 0,
   startTime: Date.now(),
   status: 'connecting',
-  model: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+  model: 'qwen/qwen3.5-397b-a17b',
   botName: process.env.BOT_NAME || 'Assistant WhatsApp',
 };
 
