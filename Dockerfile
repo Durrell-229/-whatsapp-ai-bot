@@ -17,8 +17,8 @@ COPY apps/nvidia-bot/package.json ./package.json
 # Installer les dependances (Baileys + express + pino)
 RUN npm install --production
 
-# Installer Riva pour la transcription vocale
-RUN pip install --no-cache-dir --break-system-packages nvidia-riva-client grpcio
+# Installer OpenAI pour la transcription vocale (Whisper)
+RUN pip install --no-cache-dir --break-system-packages openai
 
 # Copier le code source, les fichiers statiques et le script Python
 COPY apps/nvidia-bot/src/ ./src/

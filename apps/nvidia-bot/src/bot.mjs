@@ -15,10 +15,12 @@ import { startDashboard, logMessage, updateStats, stats, broadcastQR } from "./d
 import { loadHistory, saveHistory, clearHistory } from "./memory.mjs";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const BOT_NAME       = process.env.BOT_NAME || "Assistant WhatsApp";
 const DASHBOARD_PORT = Number(process.env.PORT || process.env.DASHBOARD_PORT) || 3000;
 
 if (!NVIDIA_API_KEY) { console.error("NVIDIA_API_KEY manquant dans .env"); process.exit(1); }
+if (!OPENAI_API_KEY) { console.error("OPENAI_API_KEY manquant dans .env (pour transcription vocale)"); process.exit(1); }
 
 const processed = new Set();
 
@@ -75,7 +77,7 @@ async function transcribeAudio(audioBuffer) {
     const tmpFile = join(tmpdir(), "audio_" + Date.now() + ".ogg");
     try {
       writeFileSync(tmpFile, audioBuffer);
-      execFile("python3", ["transcribe.py", tmpFile, NVIDIA_API_KEY], { timeout: 30000 }, (err, stdout) => {
+      execFile("python3", ["transcribe.py", tmpFile, OPENAI_API_KEY], { timeout: 30000 }, (err, stdout) => {
         try { unlinkSync(tmpFile); } catch {}
         if (err) return reject(new Error("Transcription erreur: " + err.message));
         try {
