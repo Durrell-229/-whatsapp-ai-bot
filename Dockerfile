@@ -17,7 +17,7 @@ COPY apps/nvidia-bot/package.json ./package.json
 RUN npm install --production
 
 # Installer Riva pour la transcription vocale
-RUN pip install --no-cache-dir nvidia-riva-client grpcio
+RUN pip install --no-cache-dir --break-system-packages nvidia-riva-client grpcio
 
 # Copier le code source, les fichiers statiques et le script Python
 COPY apps/nvidia-bot/src/ ./src/
