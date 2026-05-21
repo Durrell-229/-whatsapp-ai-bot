@@ -12,6 +12,7 @@ import { writeFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { startDashboard, logMessage, updateStats, stats, broadcastQR } from "./dashboard.mjs";
+import { loadHistory, saveHistory, clearHistory } from "./memory.mjs";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const BOT_NAME       = process.env.BOT_NAME || "Assistant WhatsApp";
@@ -19,11 +20,10 @@ const DASHBOARD_PORT = Number(process.env.PORT || process.env.DASHBOARD_PORT) ||
 
 if (!NVIDIA_API_KEY) { console.error("NVIDIA_API_KEY manquant dans .env"); process.exit(1); }
 
-const history  = new Map();
 const processed = new Set();
 
 async function askQwen(chatId, userMessage, imageBase64, imageMime) {
-  const msgs = history.get(chatId) || [];
+  const msgs = loadHistory(chatId);
 
   const userContent = imageBase64
     ? [
@@ -34,23 +34,39 @@ async function askQwen(chatId, userMessage, imageBase64, imageMime) {
 
   msgs.push({ role: "user", content: userContent });
 
+  const systemPrompt = `Tu es ${BOT_NAME}, un assistant IA sur WhatsApp très intelligent et naturel.
+
+RÈGLES ESSENTIELLES :
+1. LANGUE : Détecte la langue du message et réponds UNIQUEMENT dans cette langue. Ne mélange jamais les langues.
+2. STYLE : Adapte ton style de communication à chaque personne :
+   - Si la personne est formelle → sois professionnel
+   - Si la personne est décontractée → sois cool et naturel
+   - Si la personne utilise des emojis → utilise-les aussi
+   - Souviens-toi de comment elle s'exprime et imite son ton
+3. CONTEXTE : Utilise l'historique de la conversation pour comprendre le contexte et répondre intelligemment
+4. MÉMOIRE : Retiens les infos importantes des conversations précédentes et réfère-t-y si pertinent
+5. NATUREL : Sois authentique, empathique et conversationnel. Évite les réponses robotes.
+6. PRÉCISION : Sois concis mais complet. Va droit au but.
+7. IMAGES : Si une image a été envoyée, analyse-la et intègre ta description dans ta réponse naturellement`;
+
   const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
     method: "POST",
     headers: { "Authorization": "Bearer " + NVIDIA_API_KEY, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "qwen/qwen3.5-397b-a17b",
       messages: [
-        { role: "system", content: "Tu es " + BOT_NAME + ", un assistant IA sur WhatsApp. Reponds de facon concise et amicale dans la meme langue que l utilisateur." },
-        ...msgs.slice(-20),
+        { role: "system", content: systemPrompt },
+        ...msgs.slice(-30),
       ],
-      temperature: 0.7, max_tokens: 1024, stream: false,
+      temperature: 0.8, max_tokens: 1024, stream: false,
     }),
   });
   if (!res.ok) throw new Error("Chat API [" + res.status + "]: " + await res.text());
   const json = await res.json();
   const reply = (json.choices[0]?.message?.content || "(reponse vide)").trim();
   msgs.push({ role: "assistant", content: reply });
-  history.set(chatId, msgs.slice(-20));
+  const trimmed = msgs.slice(-30);
+  saveHistory(chatId, trimmed);
   return reply;
 }
 
@@ -82,9 +98,9 @@ function handleCommand(text, chatId) {
     case "!aide": case "!help":
       return BOT_NAME + " - Commandes:\n!aide - Cette aide\n!reset - Effacer historique\n!modele - Modele actif";
     case "!reset": case "!effacer":
-      history.delete(chatId); return "Historique efface.";
+      clearHistory(chatId); return "Historique efface.";
     case "!modele": case "!model":
-      return "Modele: Qwen 3.5-397B (texte + images + francais)";
+      return "Modele: Qwen 3.5-397B (texte + images + francais + audio)";
     default: return null;
   }
 }
