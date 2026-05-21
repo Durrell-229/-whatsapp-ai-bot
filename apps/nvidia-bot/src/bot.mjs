@@ -7,6 +7,10 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import P from "pino";
+import { execFile } from "child_process";
+import { writeFileSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { startDashboard, logMessage, updateStats, stats, broadcastQR } from "./dashboard.mjs";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
@@ -50,6 +54,29 @@ async function askQwen(chatId, userMessage, imageBase64, imageMime) {
   return reply;
 }
 
+async function transcribeAudio(audioBuffer) {
+  return new Promise((resolve, reject) => {
+    const tmpFile = join(tmpdir(), "audio_" + Date.now() + ".ogg");
+    try {
+      writeFileSync(tmpFile, audioBuffer);
+      execFile("python3", ["transcribe.py", tmpFile, NVIDIA_API_KEY], { timeout: 30000 }, (err, stdout) => {
+        try { unlinkSync(tmpFile); } catch {}
+        if (err) return reject(new Error("Transcription erreur: " + err.message));
+        try {
+          const result = JSON.parse(stdout);
+          if (result.success) resolve(result.text);
+          else reject(new Error(result.error || "Transcription échouée"));
+        } catch (e) {
+          reject(new Error("Parse erreur: " + e.message));
+        }
+      });
+    } catch (err) {
+      try { unlinkSync(tmpFile); } catch {}
+      reject(err);
+    }
+  });
+}
+
 function handleCommand(text, chatId) {
   switch (text.toLowerCase()) {
     case "!aide": case "!help":
@@ -80,10 +107,14 @@ async function handleMessage(msg, sock) {
 
   const imageMsg = mc.imageMessage || mc.documentWithCaptionMessage?.message?.imageMessage;
   const isImage  = !!imageMsg;
+  const audioMsg = mc.audioMessage || mc.documentWithCaptionMessage?.message?.audioMessage;
+  const isAudio  = !!audioMsg;
   const text     = (mc.conversation || mc.extendedTextMessage?.text || imageMsg?.caption || "").trim();
 
-  logMessage({ kind: "user-in", chatId, text: isImage ? "[Image] " + (imageMsg?.caption || "") : text });
-  console.log("[" + chatId + "] " + (isImage ? "[Image]" : text));
+  if (isImage) logMessage({ kind: "user-in", chatId, text: "[Image] " + (imageMsg?.caption || "") });
+  else if (isAudio) logMessage({ kind: "user-in", chatId, text: "[Message vocal]" });
+  else logMessage({ kind: "user-in", chatId, text });
+  console.log("[" + chatId + "] " + (isImage ? "[Image]" : isAudio ? "[Audio]" : text));
 
   if (isImage) {
     try {
@@ -116,6 +147,40 @@ async function handleMessage(msg, sock) {
       console.error("Erreur Image:", err.message);
       logMessage({ kind: "sys-error", msg: "Erreur image: " + err.message });
       await sock.sendMessage(chatId, { text: "Impossible d'analyser cette image." });
+    }
+    return;
+  }
+
+  if (isAudio) {
+    try {
+      if (!audioMsg?.mediaKey) {
+        await sock.sendMessage(chatId, { text: "Fichier audio non déchiffrable." });
+        logMessage({ kind: "sys-error", msg: "Audio erreur: clé media manquante" });
+        return;
+      }
+      const buffer = await downloadMediaMessage(msg, "buffer", {});
+
+      if (buffer.length >= 5000000) {
+        await sock.sendMessage(chatId, { text: "Fichier audio trop volumineux (max 5MB)." });
+        return;
+      }
+
+      stats.aiRequests++;
+      updateStats({ aiRequests: stats.aiRequests });
+
+      const transcription = await transcribeAudio(buffer);
+      console.log("[Transcription] " + transcription);
+      logMessage({ kind: "user-in", chatId, text: transcription, tag: "audio-transcript" });
+
+      const reply = await askQwen(chatId, transcription);
+      await sock.sendMessage(chatId, { text: reply });
+      logMessage({ kind: "bot-out", chatId, text: reply, tag: "audio-reply" });
+    } catch (err) {
+      stats.errors++;
+      updateStats({ errors: stats.errors });
+      console.error("Erreur Audio:", err.message);
+      logMessage({ kind: "sys-error", msg: "Erreur audio: " + err.message });
+      await sock.sendMessage(chatId, { text: "Impossible de transcrire ce message vocal." });
     }
     return;
   }
