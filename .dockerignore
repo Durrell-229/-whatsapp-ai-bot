@@ -4,10 +4,4 @@ node_modules
 **/dist
 .git
 .env
-apps/cli
-apps/docs
-packages/legacy
-packages/legacy-documented
-packages/plugin-sdk
-packages/session-sync
 *.log
