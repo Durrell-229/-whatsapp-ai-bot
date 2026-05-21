@@ -187,24 +187,13 @@ async function main() {
     });
   });
 
-  await core.start();
-
-  // Recuperer la page via getPage() (methode publique du transport)
+  // Enregistrer le listener QR AVANT core.start() pour ne pas rater l'evenement
   const transport = core.getTransport();
-  const ipage = transport.getPage();
-  if (ipage) {
-    setPage(ipage);
-    console.log("[OK] Page recuperee via transport.getPage()");
-  } else {
-    console.log("[WARN] getPage() a retourne null");
-  }
 
-  // Ecouter l'evenement QR et envoyer le canvas au dashboard
-  core.events.on("launch.auth.qr.generated", async function() {
+  async function sendQRToDashboard() {
     try {
       const page = transport.getPage();
-      if (!page) return;
-      // Extraire le QR depuis le canvas WhatsApp
+      if (!page) { console.log("[QR] page pas encore disponible"); return; }
       const qrDataUrl = await page.evaluateScript(`
         (() => {
           const canvas = document.querySelector("canvas[aria-label]");
@@ -213,18 +202,23 @@ async function main() {
       `);
       if (qrDataUrl) {
         broadcastQR(qrDataUrl);
-        console.log("[QR] Data URL envoyee au dashboard");
+        console.log("[QR] Canvas envoye au dashboard");
       } else {
-        // Fallback: screenshot de la page entiere
         const buf = await page.screenshot({ type: "png", fullPage: false });
         const b64 = Buffer.from(buf).toString("base64");
         broadcastQR("data:image/png;base64," + b64);
         console.log("[QR] Screenshot envoye au dashboard (fallback)");
       }
-    } catch (e) {
-      console.error("[QR] Erreur:", e.message);
-    }
-  });
+    } catch (e) { console.error("[QR] Erreur:", e.message); }
+  }
+
+  core.events.on("launch.auth.qr.generated", sendQRToDashboard);
+
+  await core.start();
+
+  // Page disponible apres core.start()
+  const ipage = transport.getPage();
+  if (ipage) { setPage(ipage); console.log("[OK] Page enregistree pour /screenshot"); }
 
   await ready;
 
