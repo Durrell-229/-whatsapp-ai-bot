@@ -40,8 +40,11 @@ COPY apps/nvidia-bot/ ./apps/nvidia-bot/
 # Installer les dependances
 RUN pnpm install --no-frozen-lockfile
 
-# Compiler tous les packages (pnpm gere l'ordre des dependances automatiquement)
-RUN pnpm -r --if-present build
+# Compiler uniquement les packages necessaires (turbo gere les dependances)
+RUN pnpm exec turbo build \
+    --filter=@open-wa/client \
+    --filter=@open-wa/driver-puppeteer \
+    --filter=@open-wa/core
 
 EXPOSE 3000
 
