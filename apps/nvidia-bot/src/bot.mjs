@@ -187,31 +187,44 @@ async function main() {
     });
   });
 
-  // Ecouter le QR code avant de demarrer
-  core.events.on("**", function(payload, sessionId, evName) {
-    if (!evName || typeof evName !== "string") return;
-    // Detecter l'evenement QR (nom variable selon la version)
-    if (evName.toLowerCase().includes("qr")) {
-      console.log("[QR EVENT]", evName, JSON.stringify(payload).slice(0, 300));
-      const qrData = payload?.qr || payload?.data || payload?.code || payload;
-      if (typeof qrData === "string" && qrData.length > 10) {
-        broadcastQR(qrData);
-      }
-    }
-  });
-
   await core.start();
 
-  // Donner la page au dashboard APRES le demarrage (page existante)
-  try {
-    const transport = core.getTransport();
-    const page = transport && (transport.page || transport._page);
-    if (page) {
-      setPage(page);
-      logMessage({ kind: "sys-info", msg: "Screenshot disponible sur /screenshot — scannez le QR code" });
-      console.log("Screenshot QR: ouvrez /screenshot sur le dashboard");
+  // Recuperer la page via getPage() (methode publique du transport)
+  const transport = core.getTransport();
+  const ipage = transport.getPage();
+  if (ipage) {
+    setPage(ipage);
+    console.log("[OK] Page recuperee via transport.getPage()");
+  } else {
+    console.log("[WARN] getPage() a retourne null");
+  }
+
+  // Ecouter l'evenement QR et envoyer le canvas au dashboard
+  core.events.on("launch.auth.qr.generated", async function() {
+    try {
+      const page = transport.getPage();
+      if (!page) return;
+      // Extraire le QR depuis le canvas WhatsApp
+      const qrDataUrl = await page.evaluateScript(`
+        (() => {
+          const canvas = document.querySelector("canvas[aria-label]");
+          return canvas ? canvas.toDataURL("image/png") : null;
+        })()
+      `);
+      if (qrDataUrl) {
+        broadcastQR(qrDataUrl);
+        console.log("[QR] Data URL envoyee au dashboard");
+      } else {
+        // Fallback: screenshot de la page entiere
+        const buf = await page.screenshot({ type: "png", fullPage: false });
+        const b64 = Buffer.from(buf).toString("base64");
+        broadcastQR("data:image/png;base64," + b64);
+        console.log("[QR] Screenshot envoye au dashboard (fallback)");
+      }
+    } catch (e) {
+      console.error("[QR] Erreur:", e.message);
     }
-  } catch { /* ignore */ }
+  });
 
   await ready;
 
