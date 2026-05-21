@@ -32,6 +32,11 @@ function broadcast(event) {
 
 export function setPage(page) { _page = page; }
 
+export function broadcastQR(qrData) {
+  // qrData peut etre une URL data:image/... ou un code texte brut
+  broadcast({ type: 'qr', qr: qrData });
+}
+
 export function logMessage(entry) {
   const full = { ...entry, id: Date.now() + '_' + Math.random().toString(36).slice(2), ts: Date.now() };
   messageLog.push(full);

@@ -578,8 +578,23 @@ es.onmessage = ev => {
     const data = JSON.parse(ev.data);
     if (data.type === 'stats') updateStats(data.stats);
     else if (data.type === 'log') addEntry(data.entry);
+    else if (data.type === 'qr') handleQRData(data.qr);
   } catch {}
 };
+
+function handleQRData(qr) {
+  if (!qr) return;
+  const img = $('qr-img');
+  // Si c'est deja une data URL ou URL d'image
+  if (qr.startsWith('data:') || qr.startsWith('http')) {
+    img.src = qr;
+  } else {
+    // Texte brut — afficher via screenshot
+    img.src = '/screenshot?t=' + Date.now();
+  }
+  $('qr-overlay').classList.add('show');
+  qrCountdown = 30;
+}
 es.onerror = () => {
   $('status-text').textContent = 'Reconnexion...';
   $('status-pill').className = '';

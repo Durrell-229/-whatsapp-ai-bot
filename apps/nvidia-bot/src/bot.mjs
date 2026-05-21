@@ -2,7 +2,7 @@ import "dotenv/config";
 import { createClient } from "@open-wa/core";
 import { Client } from "@open-wa/client";
 import { PuppeteerDriver } from "@open-wa/driver-puppeteer";
-import { startDashboard, logMessage, updateStats, stats, setPage } from "./dashboard.mjs";
+import { startDashboard, logMessage, updateStats, stats, setPage, broadcastQR } from "./dashboard.mjs";
 
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
 const NVIDIA_MODEL   = process.env.NVIDIA_MODEL || "meta/llama-3.1-70b-instruct";
@@ -176,18 +176,6 @@ async function main() {
     executablePath: CHROME_PATH,
   });
 
-  // Donner la page au dashboard pour le screenshot QR
-  try {
-    const transport = core.getTransport();
-    if (transport && transport.page) {
-      setPage(transport.page);
-      if (IS_HEADLESS) {
-        logMessage({ kind: "sys-info", msg: "Mode serveur: ouvrez /screenshot dans le dashboard pour scanner le QR code" });
-        console.log("Mode headless: ouvrez http://localhost:" + DASHBOARD_PORT + "/screenshot pour voir le QR code");
-      }
-    }
-  } catch { /* ignore */ }
-
   const client = new Client({ client: core, transport: core.getTransport() });
 
   const ready = new Promise(function(resolve) {
@@ -198,7 +186,33 @@ async function main() {
       resolve();
     });
   });
+
+  // Ecouter le QR code avant de demarrer
+  core.events.on("**", function(payload, sessionId, evName) {
+    if (!evName || typeof evName !== "string") return;
+    // Detecter l'evenement QR (nom variable selon la version)
+    if (evName.toLowerCase().includes("qr")) {
+      console.log("[QR EVENT]", evName, JSON.stringify(payload).slice(0, 300));
+      const qrData = payload?.qr || payload?.data || payload?.code || payload;
+      if (typeof qrData === "string" && qrData.length > 10) {
+        broadcastQR(qrData);
+      }
+    }
+  });
+
   await core.start();
+
+  // Donner la page au dashboard APRES le demarrage (page existante)
+  try {
+    const transport = core.getTransport();
+    const page = transport && (transport.page || transport._page);
+    if (page) {
+      setPage(page);
+      logMessage({ kind: "sys-info", msg: "Screenshot disponible sur /screenshot — scannez le QR code" });
+      console.log("Screenshot QR: ouvrez /screenshot sur le dashboard");
+    }
+  } catch { /* ignore */ }
+
   await ready;
 
   try {
