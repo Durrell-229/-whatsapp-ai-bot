@@ -2,6 +2,8 @@ FROM node:20-slim
 
 ENV NODE_ENV=production
 
+RUN apt-get update && apt-get install -y git --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copier uniquement le package.json du bot (standalone, sans workspace)
