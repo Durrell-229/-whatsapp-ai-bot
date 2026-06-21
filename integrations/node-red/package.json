@@ -49,7 +49,7 @@
     "@types/node": "catalog:",
     "@types/node-red": "^1.1.1",
     "@types/node-red-node-test-helper": "^0.2.2",
-    "@types/sinon": "^10.0.2",
+    "@types/sinon": "^21.0.1",
     "@types/supertest": "^2.0.11",
     "colorette": "^1.2.2",
     "concurrently": "^7.6.0",
